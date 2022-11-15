@@ -13,7 +13,7 @@ use crate::{backoff::Backoff, error::Error};
 use crate::retry::{NoopNotify, Notify};
 
 pub trait Sleeper {
-    type Sleep: Future<Output = ()> + Send + 'static;
+    type Sleep: Future<Output = ()> + 'static;
     fn sleep(&self, dur: Duration) -> Self::Sleep;
 }
 
@@ -207,14 +207,30 @@ fn rt_sleeper() -> impl Sleeper {
     AsyncStdSleeper
 }
 
-#[cfg(feature = "tokio")]
+#[cfg(all(feature = "tokio", not(feature = "gloo-timers")))]
 fn rt_sleeper() -> impl Sleeper {
     TokioSleeper
 }
 
+#[cfg(feature = "gloo-timers")]
+fn rt_sleeper() -> impl Sleeper {
+    GlooTimersSleeper
+}
+
+#[cfg(feature = "gloo-timers")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gloo-timers")))]
+struct GlooTimersSleeper;
+#[cfg(feature = "gloo-timers")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gloo-timers")))]
+impl Sleeper for GlooTimersSleeper {
+    type Sleep = ::gloo_timers_1::future::TimeoutFuture;
+    fn sleep(&self, dur: Duration) -> Self::Sleep {
+        ::gloo_timers_1::future::sleep(dur)
+    }
+}
+
 #[cfg(feature = "tokio")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
-
 struct TokioSleeper;
 #[cfg(feature = "tokio")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
